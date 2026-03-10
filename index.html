@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GREEN-API</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f3f3;
+      color: #222;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+
+    .app {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      background: #fff;
+      border: 1px solid #dcdcdc;
+      padding: 24px;
+      border-radius: 8px;
+    }
+
+    .left-panel {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .right-panel {
+      flex: 1;
+    }
+
+    .block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input,
+    textarea,
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cfcfcf;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    button {
+      background: #f7f7f7;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #ececec;
+    }
+
+    .response-title {
+      font-size: 20px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .response-box {
+      width: 100%;
+      min-height: 560px;
+      resize: none;
+      background: #fafafa;
+    }
+
+    @media (max-width: 800px) {
+      .app {
+        flex-direction: column;
+      }
+
+      .left-panel {
+        width: 100%;
+      }
+
+      .response-box {
+        min-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="app">
+      <div class="left-panel">
+        <div class="block">
+          <input id="idInstance" type="text" placeholder="idInstance" />
+          <input id="apiTokenInstance" type="text" placeholder="ApiTokenInstance" />
+        </div>
+
+        <div class="block">
+          <button onclick="getSettings()">getSettings</button>
+          <button onclick="getStateInstance()">getStateInstance</button>
+        </div>
+
+        <div class="block">
+          <input id="chatIdMessage" type="text" placeholder="77771234567 или 77771234567@c.us" />
+          <textarea id="messageText" placeholder="Hello World!"></textarea>
+          <button onclick="sendMessage()">sendMessage</button>
+        </div>
+
+        <div class="block">
+          <input id="chatIdFile" type="text" placeholder="77771234567 или 77771234567@c.us" />
+          <input id="fileUrl" type="text" placeholder="https://my.site.com/img/horse.png" />
+          <button onclick="sendFileByUrl()">sendFileByUrl</button>
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div class="response-title">Ответ:</div>
+        <textarea id="response" class="response-box" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://7103.api.greenapi.com";
+
+    function setResponse(data) {
+      const responseField = document.getElementById("response");
+      responseField.value =
+        typeof data === "string" ? data : JSON.stringify(data, null, 2);
+    }
+
+    function getCredentials() {
+      const idInstance = document.getElementById("idInstance").value.trim();
+      const apiTokenInstance = document.getElementById("apiTokenInstance").value.trim();
+
+      if (!idInstance || !apiTokenInstance) {
+        throw new Error("Введите idInstance и ApiTokenInstance");
+      }
+
+      return { idInstance, apiTokenInstance };
+    }
+
+    function normalizeChatId(value) {
+      let chatId = value.trim();
+
+      if (!chatId) return "";
+
+      if (chatId.includes("@c.us")) {
+        return chatId;
+      }
+
+      chatId = chatId.replace(/\D/g, "");
+      return chatId ? `${chatId}@c.us` : "";
+    }
+
+    async function apiRequest(url, options = {}) {
+      try {
+        setResponse("Загрузка...");
+
+        const res = await fetch(url, options);
+        const text = await res.text();
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+
+        setResponse({
+          status: res.status,
+          ok: res.ok,
+          data: data
+        });
+      } catch (error) {
+        setResponse({
+          error: true,
+          message: error.message
+        });
+      }
+    }
+
+    async function getSettings() {
+      try {
+        const { idInstance, apiTokenInstance } = getCredentials();
+        const url = `${API_URL}/waInstance${idInstance}/getSettings/${apiTokenInstance}`;
+        await apiRequest(url, { method: "GET" });
+      } catch (error) {
+        setResponse({ error: error.message });
+      }
+    }
+
+    async function getStateInstance() {
+      try {
+        const { idInstance, apiTokenInstance } = getCredentials();
+        const url = `${API_URL}/waInstance${idInstance}/getStateInstance/${apiTokenInstance}`;
+        await apiRequest(url, { method: "GET" });
+      } catch (error) {
+        setResponse({ error: error.message });
+      }
+    }
+
+    async function sendMessage() {
+      try {
+        const { idInstance, apiTokenInstance } = getCredentials();
+
+        let chatId = document.getElementById("chatIdMessage").value;
+        const message = document.getElementById("messageText").value.trim();
+
+        chatId = normalizeChatId(chatId);
+        document.getElementById("chatIdMessage").value = chatId;
+
+        if (!chatId || !message) {
+          throw new Error("Введите chatId и текст сообщения");
+        }
+
+        const url = `${API_URL}/waInstance${idInstance}/sendMessage/${apiTokenInstance}`;
+
+        await apiRequest(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            chatId,
+            message
+          })
+        });
+      } catch (error) {
+        setResponse({ error: error.message });
+      }
+    }
+
+    async function sendFileByUrl() {
+      try {
+        const { idInstance, apiTokenInstance } = getCredentials();
+
+        let chatId = document.getElementById("chatIdFile").value;
+        const urlFile = document.getElementById("fileUrl").value.trim();
+
+        chatId = normalizeChatId(chatId);
+        document.getElementById("chatIdFile").value = chatId;
+
+        if (!chatId || !urlFile) {
+          throw new Error("Введите chatId и ссылку на файл");
+        }
+
+        const fileName = urlFile.split("/").pop() || "file";
+        const url = `${API_URL}/waInstance${idInstance}/sendFileByUrl/${apiTokenInstance}`;
+
+        await apiRequest(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            chatId,
+            urlFile,
+            fileName
+          })
+        });
+      } catch (error) {
+        setResponse({ error: error.message });
+      }
+    }
+  </script>
+</body>
+</html>
